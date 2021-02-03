@@ -1,0 +1,483 @@
+
+#Online news popularity prediction
+
+rm(list=ls())
+mydata=read.csv(file="E:/Sayaji (PD)/Project/OnlineNewsPopularity.csv",header=T,sep=",")
+summary(mydata)
+dim(mydata)
+#Exploratory Data Analysis & Cleaning Data:
+
+min(mydata$n_tokens_content)
+which(mydata$n_tokens_content==0)
+
+#The few value in n_tokens_content is 0. so we remove entire rows from data
+
+data=mydata[-c(which(mydata$n_tokens_content==0)),]   
+nrow(data) #There 1181 rows of n_tokens_content contain 0 value and We removed those rows
+
+
+#Check for any missing values:
+
+table(is.na(data))
+sum(is.na(data))
+#There is no missing value in data
+
+
+#Outlier 
+max(data$n_non_stop_words)
+
+
+#Removing non predictive variables 
+data = subset( data, select = -c(url ,is_weekend ) )
+summary(data)
+str(data)
+##################################################################
+
+#Combining Plots for EDA for visual analysis
+
+par(mfrow=c(2,2))
+for(i in 2:length(data)){hist(data[,i],
+                              xlab=names(data)[i] , main = paste("[" , i , "]" ,
+                                  "Histogram of", names(data)[i])  )}
+
+
+str(data)
+
+#Converting categorical values from numeric to factor - Article subjects
+for (i in 13:18)
+{
+  data[,i] = factor(data[,i])
+}
+
+
+#Converting categorical values from numeric to factor - (Weekdays)
+for (i in 31:37)
+{
+  data[,i] = factor(data[,i])
+}
+
+
+#check classes of data after transformation
+
+lapply(data, class)
+#or
+str(data)
+
+#Skewness analysis
+
+library(ggplot2)
+ggplot(data, aes(x=shares)) + geom_histogram()
+hist(data$shares)
+
+
+#shares variable is highly skewed so needed log transformation 
+
+summary(data$shares)
+plot(log(data$shares))
+
+
+#Checking importance of news subjects(categorical varibles) on shares
+par(mfrow=c(3,3))
+
+for (i in 13:18)
+{
+  boxplot(log(data$shares) ~ (data[,i]), xlab=names(data)[i] , ylab="shares")
+}
+
+#Checking importance of weekdays on news shares
+par(mfrow=c(3,4))
+
+for (i in 31:37)
+{
+  boxplot(log(data$shares) ~ (data[,i]), xlab=names(data)[i] , ylab="shares")
+}
+
+
+#shares variable needed log transformation after checking the frequency distribution graph.
+plot(log(data$shares))
+
+
+
+
+#EDA of mashable data set
+
+data=read.csv(file="E:/Sayaji (PD)/Project/OnlineNewsPopularity.csv",header=T,sep=",")
+summary(data)
+library(dplyr)
+library(ggplot2)
+
+
+
+data =data %>% mutate(Weekday=case_when(weekday_is_monday=="1" ~ "Mon",
+                                        weekday_is_tuesday=="1" ~ "Tue",
+                                        weekday_is_wednesday=="1" ~ "Wed",
+                                        weekday_is_thursday=="1" ~ "Thu",
+                                        weekday_is_friday=="1" ~ "Fri",
+                                        weekday_is_saturday=="1" ~ "Sat",
+                                        weekday_is_sunday=="1" ~ "Sun"))
+data = data %>% mutate(Weekday=factor(Weekday,levels=c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))
+
+#boxplot of weekdays
+
+ggplot(data=data,aes(x=Weekday,y=shares,fill=Weekday))+geom_boxplot() + theme_classic() +ylim(0,2000) + scale_fill_brewer(palette="PuBuGn") + labs(x="Weekday",y="Number of Shares")
+
+
+
+
+data = data %>% mutate(Channel=case_when(data_channel_is_lifestyle=="1" ~ "Lifestyle",
+                                         data_channel_is_entertainment=="1" ~ "Entertainment",
+                                         data_channel_is_bus=="1" ~ "Business",
+                                         data_channel_is_socmed=="1" ~ "Social Media",
+                                         data_channel_is_tech=="1" ~ "Technology",
+                                         data_channel_is_world=="1" ~ "World",
+                                         TRUE ~"Other"))
+#Boxplot of Data channel
+ggplot(data=data,aes(x=Channel,y=shares,fill=Channel))+geom_boxplot() + theme_classic() +ylim(0,2000) + scale_fill_brewer(palette="PuBuGn") + labs(x="Channel",y="Shares",title="Boxplot - Shares by Channel")
+
+
+content_lenght =ggplot(data=data,aes(x=n_tokens_content,y=shares)) + geom_point()+ labs(x="Number of words in the content",y="Shares")
+title_lenght =ggplot(data,aes(x=n_tokens_title,y=shares)) + geom_point()+labs(x="Number of words in the title",y="Shares")
+
+no_of_img=ggplot(data=data,aes(x=num_imgs,y=shares)) + geom_point()+labs(x="Number of images",y="Shares")
+no_of_videos=ggplot(data=data,aes(x=num_videos,y=shares)) + geom_point()+labs(x="Number of videos",y="Shares")
+
+#install.packages("gridExtra")
+library(gridExtra)
+
+#Arrange the plots in single page
+grid.arrange(content_lenght, title_lenght, no_of_img, no_of_videos, ncol=2, nrow=2)
+
+
+no_of_link=ggplot(data=data,aes(x=num_hrefs,y=shares)) + geom_point()+labs(x="Number of links",y="Shares")
+num_self_hrefs =ggplot(data=data,aes(x=num_self_hrefs,y=shares)) + geom_point()+labs(x="Number of links to other articles published ",y="Shares")
+num_keywords =ggplot(data=data,aes(x=num_keywords,y=shares)) + geom_point()+labs(x=": Number of keywords ",y="Shares")
+
+
+
+
+#---------###################################################-----##
+
+##Feature selection
+
+#divide the dataset into training data and test data:
+library(caTools)
+set.seed(100)
+splitdata= sample.split(data,SplitRatio = 0.7)
+train_data = subset(data, splitdata == TRUE)
+test_data = subset(data, splitdata == FALSE)
+
+#Linear regression
+
+lr_model = lm(shares ~ ., data = train_data)
+summary(lr_model)
+
+table(data$weekday_is_sunday)
+par(mfrow=c(2,2))
+plot(lr_model)  #Variance is not constant, normality ssumption violated
+
+library(MASS)
+pred_model=predict(lr_model, test_data)
+
+sqrt(mean((test_data$shares - pred_model)^2))
+
+#############################################################################
+
+
+#Forward  and backward stepwise regression to select imp variables
+
+#stepwise=stepAIC(lr_model,direction= "both")
+#fit_step=step(lr_model)
+
+#Taking important variables
+#By using stepwise method we found the 26 important feature
+
+df = subset( data, select =c(timedelta , n_tokens_title, n_tokens_content , n_unique_tokens ,
+                             n_non_stop_unique_tokens,num_imgs,num_hrefs , num_self_hrefs, average_token_length , 
+                             data_channel_is_lifestyle , data_channel_is_entertainment , 
+                             kw_min_min , kw_max_min , kw_avg_min , kw_min_max , kw_min_avg , 
+                             kw_max_avg , kw_avg_avg, self_reference_min_shares , weekday_is_monday, 
+                             weekday_is_saturday ,LDA_02 , global_subjectivity, global_rate_positive_words , 
+                             min_positive_polarity ,avg_negative_polarity,shares) )
+
+summary(df$shares)
+dim(df)
+head(df)
+# Now we divide the dataset based on best variables
+
+splitdata<- sample.split(df,SplitRatio = 0.7)
+traindata <- subset(df, splitdata == TRUE)
+testdata <- subset(df, splitdata == FALSE)
+
+#################################################################################################
+
+# Now, we fit a linear regression model with all selected 27 variable variables;
+
+best_lrm= lm(shares ~ ., data = traindata)
+summary(best_lrm)
+
+par(mfrow=c(2,2))
+plot(best_lrm)
+
+# This model has a low R-square value,non-costsnat varaince and non-normality,we  use a transformation on the model.
+
+# We try the log-transformation on our target variable to optimise our fit model:
+
+df$shares = log(df$shares)
+summary(df$shares)
+#View(df)
+splitdata= sample.split(df,SplitRatio = 0.7)
+traindata = subset(df, splitdata == TRUE)
+testdata = subset(df, splitdata == FALSE)
+best_lrm2= lm(shares ~ ., data = traindata)
+summary(best_lrm2)
+
+par(mfrow=c(2,2))
+plot(best_lrm2)
+
+
+pred_lrm2 = predict(best_lrm2, testdata)
+
+#MSE on train data
+sqrt(mean((traindata$shares - pred_lrm2)^2))
+
+#MSE on test data
+sqrt(mean((testdata$shares - pred_lrm2)^2))
+
+#Mean absolute deviation
+sqrt(mean(abs(testdata$shares - pred_lrm2)))
+
+
+# We thus get an optimized model with Adjusted  R-square value of approximately 12% and Root mean square error of approximately 0.87. 
+#This model includes only the statiscal variables.
+
+
+############################################################################
+#Now we classify the outcome variable into binary type using the median of shares
+
+median(df$shares)
+
+# Define articles with shares larger than 7.244 (median) as popular article
+df$shares = as.factor(ifelse(df$shares > 7.244,1,0))
+
+hist(log(data$shares), col = c("red", "green") ,xlab="Shares", main="Shares Frequency" )
+ggplot(data, aes(x=log(data$shares))) + geom_histogram()
+
+
+#splite the data final data for classification
+nrow(df)
+ncol(df)
+set.seed(500)
+
+splitdata= sample.split(df,SplitRatio = 0.7)
+traindata = subset(df, splitdata == TRUE)
+testdata=subset(df, splitdata == FALSE)
+
+########################################Classification##################################################################################
+
+######Logistic Regression#--------
+
+log_model=glm(shares~.,data=traindata,family=binomial)
+summary(log_model) 
+
+p=predict(log_model,testdata, type="response")
+#View(test_set)
+table(Actualvalue=testdata$shares,predictedvalue=p>0.5)
+
+library(ROCR)
+pr=prediction(p, testdata$shares)
+prf=performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf,colorize=TRUE, print.cutoffs.at=seq(0.1, by=0.1)) 
+
+
+auc=performance(pr, measure = "auc")
+auc=auc@y.values[[1]]
+auc
+
+
+#############-----------CART--------######################
+
+#Classification and Regression Trees
+library(rpart)
+
+news.cart=rpart(shares ~.,traindata,method='class')
+
+par(mfrow=c(1,1))
+library(rpart.plot)
+
+rpart.plot(news.cart,type = 2, extra = "auto")
+#predict
+cart_pred<-predict( news.cart,testdata ,type="class")
+cart_prob<-predict( news.cart,testdata ,type="prob")
+
+# Confusion matrix
+confusionMatrix(cart_pred, testdata$shares)
+
+
+
+
+#############-----------C5.0 algorithm--------######################
+
+#install.packages("C50")
+library(C50)
+newsc50=C5.0(shares ~.,traindata,trials=20)
+newsc50.pred=predict(newsc50,testdata,type="class" )
+newsc50.prob=predict(newsc50,testdata,type="prob" )
+# Confusion matrix
+confusionMatrix(newsc50.pred, testdata$shares)
+rpart.plot(newsc50,type = 2, extra = "auto")
+
+
+#ROC Curve for C5.0
+newsc50.roc=roc(testdata$shares,newsc50.prob[,2])
+plot(newsc50.roc, print.auc=TRUE, auc.polygon=TRUE, grid=c(0.1, 0.2),
+     grid.col=c("green", "red"), max.auc.polygon=TRUE,
+     auc.polygon.col="grey", print.thres=TRUE, main="ROC for C5.0")
+
+
+
+
+#############-----------Naive bayes algorithm--------######################
+
+
+library(e1071)
+nav.model = naiveBayes(shares~.,traindata)
+#pred <- predict(nav.mod,testdata)
+newsnb.pred=predict(nav.model,testdata,type="class" )
+newsnb.prob=predict(nav.model,testdata,type="raw" )
+
+confusionMatrix(newsnb.pred,testdata$shares)
+
+#ROC Curve for Nayive Bayes
+library(ROCR)
+
+newsnb.roc=roc(testdata$shares,newsnb.prob[,2])
+plot(newsnb.roc, print.auc=TRUE, auc.polygon=TRUE, grid=c(0.1, 0.2),
+     grid.col=c("green", "red"), max.auc.polygon=TRUE,
+     auc.polygon.col="grey", print.thres=TRUE , main="ROC for NB")
+
+
+
+
+
+#############-----------KNN algorithm--------######################
+
+
+View(df)
+str(df)
+dim(df)
+
+normalize= function(x) {
+  return ((x - min(x)) / (max(x) - min(x))) }
+
+df[,c(1:9,14:19,22:26)]=as.data.frame(lapply(df[,c(1:9,14:19,22:26)], normalize))
+
+
+str(df)
+head(df)
+dim(df)
+summary(df)
+
+set.seed(500)
+
+splitdata= sample.split(df,SplitRatio = 0.7)
+traindata = subset(df, splitdata == TRUE)
+testdata=subset(df, splitdata == FALSE)
+
+library(class)
+
+popu_pred_knn= knn(train= traindata, test = testdata,cl = traindata$shares, k=196)
+
+#Confusiin Matrix 
+
+table(popu_pred_knn,testdata$shares)
+library(caret)
+confusionMatrix(popu_pred_knn, testdata$shares)
+
+
+################################################################
+
+
+
+#Using caret packge
+
+Popul_pred_caret <- train(traindata, traindata$shares, method = "knn", preProcess = c("center","scale"))
+
+
+knnFit=train(shares~., data = traindata, method = "knn") 
+             maximize = TRUE,
+             trControl = trainControl(method = "cv", number = 10),
+             preProcess=c("center", "scale"))
+ggplot(knnFit) + geom_line() + geom_smooth() + theme_light()
+
+predictedkNN3 <- predict(knnFit,  testdata)
+confusionMatrix(predictedkNN3, testdata$shares)
+
+
+
+#############-----------Random Forest--------######################
+
+#install.packages("randomForest")
+library(randomForest)
+str(df)
+set.seed(500)
+
+splitdata= sample.split(df,SplitRatio = 0.7)
+traindata = subset(df, splitdata == TRUE)
+testdata=subset(df, splitdata == FALSE)
+
+#install.packages("randomForest")
+library(randomForest)
+
+rfresults=randomForest(shares~.,data=traindata,mtry=8,ntree=500)
+plot(rfresults, main="Random forest error rate")
+
+rfprediction=predict(rfresults,testdata,type="response")
+#print(rfprediction)
+confusionMatrix(rfprediction,testdata$shares)
+
+
+
+
+r=data.frame(testdata$shares,rfprediction)
+plot(r)
+
+line(rfprediction)
+
+################## Random Forest with ntree=700-------------------------------
+
+rfresults2=randomForest(shares~.,data=traindata,mtry=8,ntree=700)
+
+
+plot(rfresults2, main="Random forest error rate")
+#randomForest.crossValidation(rfresults,modifieddata,p=0.1,n=10, plot=TRUE, ntree=700)
+rfprediction2=predict(rfresults2,testdata)
+#print(rfprediction2)
+confusionMatrix(rfprediction2,testdata$shares)
+
+
+r=data.frame(testdata$shares,rfprediction2)
+plot(r)
+
+line(rfprediction)
+
+#################################################################################################################################################################
+
+
+######################################Correlation Plot##########################################
+
+head(df)
+dim(df)
+for (i in 1:26){
+  df[,i] <- as.numeric(df[,i])
+}
+
+sapply(df, class)
+library(Hmisc)
+
+cormat = cor(df[,-27])
+
+#visualizing Correllation matrix
+library(corrplot)
+corrplot(cormat, type = "lower", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+

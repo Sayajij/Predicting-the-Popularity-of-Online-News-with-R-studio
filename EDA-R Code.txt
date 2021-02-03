@@ -1,0 +1,80 @@
+
+
+
+#EDA of mashable data set
+
+data=read.csv(file="E:/Sayaji (PD)/Project/OnlineNewsPopularity.csv",header=T,sep=",")
+summary(data)
+library(dplyr)
+library(ggplot2)
+
+
+
+data =data %>% mutate(Weekday=case_when(weekday_is_monday=="1" ~ "Mon",
+                                        weekday_is_tuesday=="1" ~ "Tue",
+                                        weekday_is_wednesday=="1" ~ "Wed",
+                                        weekday_is_thursday=="1" ~ "Thu",
+                                        weekday_is_friday=="1" ~ "Fri",
+                                        weekday_is_saturday=="1" ~ "Sat",
+                                        weekday_is_sunday=="1" ~ "Sun"))
+data = data %>% mutate(Weekday=factor(Weekday,levels=c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))
+
+#boxplot of weekdays
+
+ggplot(data=data,aes(x=Weekday,y=shares,fill=Weekday))+geom_boxplot() + theme_classic() +ylim(0,2000) + scale_fill_brewer(palette="PuBuGn") + labs(x="Weekday",y="Number of Shares")
+
+
+
+
+data = data %>% mutate(Channel=case_when(data_channel_is_lifestyle=="1" ~ "Lifestyle",
+                                         data_channel_is_entertainment=="1" ~ "Entertainment",
+                                         data_channel_is_bus=="1" ~ "Business",
+                                         data_channel_is_socmed=="1" ~ "Social Media",
+                                         data_channel_is_tech=="1" ~ "Technology",
+                                         data_channel_is_world=="1" ~ "World",
+                                         TRUE ~"Other"))
+#Boxplot of Data channel
+ggplot(data=data,aes(x=Channel,y=shares,fill=Channel))+geom_boxplot() + theme_classic() +ylim(0,2000) + scale_fill_brewer(palette="PuBuGn") + labs(x="Channel",y="Shares",title="Boxplot - Shares by Channel")
+
+
+content_lenght =ggplot(data=data,aes(x=n_tokens_content,y=shares)) + geom_point()+ labs(x="Number of words in the content",y="Shares")
+title_lenght =ggplot(data,aes(x=n_tokens_title,y=shares)) + geom_point()+labs(x="Number of words in the title",y="Shares")
+
+no_of_img=ggplot(data=data,aes(x=num_imgs,y=shares)) + geom_point()+labs(x="Number of images",y="Shares")
+no_of_videos=ggplot(data=data,aes(x=num_videos,y=shares)) + geom_point()+labs(x="Number of videos",y="Shares")
+
+#install.packages("gridExtra")
+library(gridExtra)
+
+#Arrange the plots in single page
+grid.arrange(content_lenght, title_lenght, no_of_img, no_of_videos, ncol=2, nrow=2)
+
+
+no_of_link=ggplot(data=data,aes(x=num_hrefs,y=shares)) + geom_point()+labs(x="Number of links",y="Shares")
+num_self_hrefs =ggplot(data=data,aes(x=num_self_hrefs,y=shares)) + geom_point()+labs(x="Number of links to other articles published ",y="Shares")
+num_keywords =ggplot(data=data,aes(x=num_keywords,y=shares)) + geom_point()+labs(x=": Number of keywords ",y="Shares")
+
+######################################Correlation Plot##########################################
+
+head(df)
+dim(df)
+for (i in 1:26){
+  df[,i] <- as.numeric(df[,i])
+}
+
+sapply(df, class)
+library(Hmisc)
+
+cormat = cor(df[,-27])
+
+#visualizing Correllation matrix
+library(corrplot)
+corrplot(cormat, type = "lower", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+
+
+
+
+
+
